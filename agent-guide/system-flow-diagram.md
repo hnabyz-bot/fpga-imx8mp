@@ -4,13 +4,13 @@
 
 ```mermaid
 graph LR
-    A[FPGA<br/>16-bit Data] --> B[Data Packing<br/>16bit→8bit]
-    B --> C[MIPI CSI-2 TX<br/>FSM]
-    C --> D[D-PHY TX<br/>4-Lane]
-    D --> E[D-PHY RX<br/>4-Lane]
-    E --> F[MIPI CSI-2 RX<br/>Bridge]
-    F --> G[ISI<br/>Image Sensor Interface]
-    G --> H[DRAM<br/>Memory]
+    A[FPGA: 16-bit Data] --> B[Data Packing: 16bit to 8bit]
+    B --> C[MIPI CSI-2 TX FSM]
+    C --> D[D-PHY TX 4-Lane]
+    D --> E[D-PHY RX 4-Lane]
+    E --> F[MIPI CSI-2 RX Bridge]
+    F --> G[ISI: Image Sensor Interface]
+    G --> H[DRAM Memory]
     
     style A fill:#e1f5ff
     style B fill:#e1f5ff
@@ -36,11 +36,11 @@ flowchart TB
     Start[시작: 256개 16-bit 데이터] --> Pack[데이터 패킹]
     Pack --> |Little Endian| Raw8[512 bytes RAW8]
     
-    Raw8 --> Check{메모리 정렬<br/>512 % 64 == 0?}
-    Check -->|Yes ✅| AXI[AXI4-Stream<br/>변환]
+    Raw8 --> Check{메모리 정렬: 512 % 64 == 0?}
+    Check -->|Yes ✅| AXI[AXI4-Stream 변환]
     Check -->|No ❌| Error[정렬 에러]
     
-    AXI --> TVALID{TVALID &&<br/>TREADY?}
+    AXI --> TVALID{TVALID and TREADY?}
     TVALID -->|Yes| TX[MIPI TX]
     TVALID -->|No| Wait[대기]
     Wait --> TVALID
@@ -62,9 +62,9 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant F as FPGA<br/>MIPI TX
-    participant P as D-PHY<br/>4-Lane
-    participant I as i.MX8MP<br/>ISI
+    participant F as FPGA MIPI TX
+    participant P as D-PHY 4-Lane
+    participant I as i.MX8MP ISI
     
     Note over F: 초기화
     F->>P: LP-11 (초기 상태)
@@ -83,7 +83,7 @@ sequenceDiagram
         Note over F: Payload 전송
         F->>P: 512 bytes RAW8
         P->>I: 512 bytes RAW8
-        I->>I: 메모리 저장<br/>(DRAM)
+        I->>I: 메모리 저장 (DRAM)
     end
     
     Note over F,I: Frame End
@@ -104,9 +104,9 @@ stateDiagram-v2
     IDLE --> FS: Frame Start 트리거
     FS --> LS: FS 패킷 전송 완료
     LS --> PAYLOAD: LS 패킷 전송 완료
-    PAYLOAD --> BLANKING: 512 bytes 전송 완료<br/>(TLAST=1)
-    BLANKING --> LS: 다음 라인<br/>(Line < 16)
-    BLANKING --> FE: 마지막 라인<br/>(Line == 16)
+    PAYLOAD --> BLANKING: 512 bytes 전송 완료 (TLAST=1)
+    BLANKING --> LS: 다음 라인 (Line < 16)
+    BLANKING --> FE: 마지막 라인 (Line == 16)
     FE --> IDLE: FE 패킷 전송 완료
     
     note right of IDLE
@@ -144,16 +144,16 @@ flowchart TB
     FSCheck -->|Yes| NewFrame[새 프레임 시작]
     FSCheck -->|No| LSCheck{LS 패킷?}
     
-    LSCheck -->|Yes| NewLine[새 라인 시작<br/>Line Count++]
+    LSCheck -->|Yes| NewLine[새 라인 시작: Line Count++]
     LSCheck -->|No| PayloadCheck{Payload?}
     
-    PayloadCheck -->|Yes| WriteRAM[DRAM 쓰기<br/>Stride=512]
+    PayloadCheck -->|Yes| WriteRAM[DRAM 쓰기: Stride=512]
     PayloadCheck -->|No| FECheck{FE 패킷?}
     
-    FECheck -->|Yes| Complete[프레임 완료<br/>v4l2 버퍼 준비]
+    FECheck -->|Yes| Complete[프레임 완료: v4l2 버퍼 준비]
     FECheck -->|No| Error[패킷 에러]
     
-    WriteRAM --> Align{64-byte<br/>정렬?}
+    WriteRAM --> Align{64-byte 정렬?}
     Align -->|Yes ✅| Continue[계속]
     Align -->|No ❌| AlignError[정렬 에러]
     
@@ -176,8 +176,8 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant M as Master<br/>(FPGA)
-    participant S as Slave<br/>(MIPI IP)
+    participant M as Master (FPGA)
+    participant S as Slave (MIPI IP)
     
     Note over M,S: 정상 전송
     M->>S: TVALID=1, TDATA=0xCD
@@ -225,10 +225,10 @@ graph TB
     end
     
     subgraph iMX8MP["i.MX8MP 수신"]
-        C1 --> D1["메모리<br/>Offset 0: 0xCD"]
-        C1 --> D2["메모리<br/>Offset 1: 0xAB"]
-        C1 --> D3["메모리<br/>Offset 2: 0x34"]
-        C1 --> D4["메모리<br/>Offset 3: 0x12"]
+        C1 --> D1["메모리 Offset 0: 0xCD"]
+        C1 --> D2["메모리 Offset 1: 0xAB"]
+        C1 --> D3["메모리 Offset 2: 0x34"]
+        C1 --> D4["메모리 Offset 3: 0x12"]
     end
     
     subgraph Restore["복원 (Python)"]
@@ -266,7 +266,7 @@ flowchart TB
     Capture --> Check3{파일 크기<br/>8192 bytes?}
     
     Check3 -->|No| Debug2[dmesg 로그 확인]
-    Debug2 --> Fix2[Stride 재설정<br/>또는 라인 수 확인]
+    Debug2 --> Fix2[Stride 재설정 또는 라인 수 확인]
     Fix2 --> Capture
     
     Check3 -->|Yes| Verify[데이터 검증]
