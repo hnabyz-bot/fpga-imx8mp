@@ -185,7 +185,7 @@ TUSER[0] = 1   // Frame Start
 
 ## 📚 문서 링크
 
-- **전체 개요**: [README.md](README.md)
+- **전체 문서 가이드**: [DOCUMENTATION-GUIDE.md](DOCUMENTATION-GUIDE.md)
 - **프로젝트 계획**: [mipi-project-plan.md](mipi-project-plan.md)
 - **작업 지침**: [agent-prompts.md](agent-prompts.md)
 - **5일 계획**: [todo-list-5days.md](todo-list-5days.md)

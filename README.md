@@ -1,7 +1,7 @@
 # FPGA-i.MX8MP MIPI CSI-2 Communication Project
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](agent-guide/README.md)
+[![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](agent-guide/DOCUMENTATION-GUIDE.md)
 
 ## 📖 프로젝트 개요
 
@@ -23,8 +23,8 @@ FPGA(Xilinx Artix-7 XC7A35T)에서 i.MX8MP로 16-bit 데이터를 MIPI CSI-2 4-L
 
 **추천 순서:**
 ```
-1. agent-guide/README.md          - 전체 문서 가이드
-2. agent-guide/QUICK-REFERENCE.md - 빠른 참조
+1. agent-guide/DOCUMENTATION-GUIDE.md - 전체 문서 가이드
+2. agent-guide/QUICK-REFERENCE.md    - 빠른 참조
 3. agent-guide/mipi-project-plan.md - 프로젝트 계획
 4. agent-guide/agent-prompts.md    - 작업 지침
 5. agent-guide/todo-list-5days.md  - 5일 작업 계획
@@ -75,7 +75,7 @@ MIPI RX → ISI → DRAM (64-byte 정렬)
 ## 📚 문서 구조
 
 ### 필수 문서
-- **[README.md](agent-guide/README.md)** - 전체 프로젝트 가이드
+- **[DOCUMENTATION-GUIDE.md](agent-guide/DOCUMENTATION-GUIDE.md)** - 전체 문서 가이드
 - **[QUICK-REFERENCE.md](agent-guide/QUICK-REFERENCE.md)** - 핵심 요약 및 명령어
 - **[mipi-project-plan.md](agent-guide/mipi-project-plan.md)** - 프로젝트 계획서
 - **[agent-prompts.md](agent-guide/agent-prompts.md)** - AI 에이전트 작업 지침
@@ -163,7 +163,7 @@ end
 
 | 문서 | 용도 | 독자 |
 |------|------|------|
-| [README.md](agent-guide/README.md) | 전체 가이드 | 모든 참여자 |
+| [DOCUMENTATION-GUIDE.md](agent-guide/DOCUMENTATION-GUIDE.md) | 전체 가이드 | 모든 참여자 |
 | [QUICK-REFERENCE.md](agent-guide/QUICK-REFERENCE.md) | 빠른 참조 | 개발자 |
 | [mipi-project-plan.md](agent-guide/mipi-project-plan.md) | 프로젝트 계획 | PM, 개발자 |
 | [agent-prompts.md](agent-guide/agent-prompts.md) | 작업 지침 | AI 에이전트 |
