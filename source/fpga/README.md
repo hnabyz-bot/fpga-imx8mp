@@ -8,29 +8,46 @@ FPGA(Xilinx Artix-7 XC7A35T) 관련 소스 코드 및 IP 설정
 
 ```mermaid
 graph TB
-    Start([시작: FPGA Configuration 확인]) --> Config{DONE 신호<br/>확인?}
+    Start([시작: FPGA Configuration 확인]) --> Config{DONE 신호 확인?}
     Config -->|No| Wait[대기 또는 재시도]
     Wait --> Config
-    Config -->|Yes| IPSetup[1. MIPI TX IP 설정<br/>ip/mipi_csi2_tx_setup.tcl]
+    Config -->|Yes| IPSetup[1. MIPI TX IP 설정]
     
-    IPSetup --> RTL1[2. 데이터 패킹 모듈<br/>rtl/data_pack_16to8.v]
-    RTL1 --> Sim1{시뮬레이션<br/>통과?}
-    Sim1 -->|No| Debug1[디버깅:<br/>tb_data_pack.v]
+    IPSetup --> RTL1[2. 데이터 패킹 모듈]
+    RTL1 --> Sim1{시뮬레이션 통과?}
+    Sim1 -->|No| Debug1[디버깅: tb_data_pack.v]
     Debug1 --> RTL1
-    Sim1 -->|Yes| RTL2[3. MIPI FSM<br/>rtl/mipi_csi2_tx_fsm.v]
+    Sim1 -->|Yes| RTL2[3. MIPI FSM]
     
-    RTL2 --> Sim2{시뮬레이션<br/>통과?}
-    Sim2 -->|No| Debug2[디버깅:<br/>tb_fsm.v]
+    RTL2 --> Sim2{시뮬레이션 통과?}
+    Sim2 -->|No| Debug2[디버깅: tb_fsm.v]
     Debug2 --> RTL2
-    Sim2 -->|Yes| RTL3[4. 프레임 생성<br/>rtl/frame_generator.v]
+    Sim2 -->|Yes| RTL3[4. 프레임 생성]
     
-    RTL3 --> Top[5. Top 통합<br/>rtl/top.v]
-    Top --> Const[6. 제약 설정<br/>constraints/pins.xdc<br/>constraints/timing.xdc]
+    RTL3 --> Top[5. Top 통합]
+    Top --> Const[6. 제약 설정]
     
     Const --> Synth[7. 합성 & 구현]
-    Synth --> TimingCheck{타이밍<br/>충족?}
+    Synth --> TimingCheck{타이밍 충족?}
     TimingCheck -->|No| OptConst[제약 최적화]
     OptConst --> Const
+    TimingCheck -->|Yes| BitGen[8. 비트스트림 생성]
+    
+    BitGen --> ILA[9. ILA 신호 검증]
+    ILA --> Verify{신호 정상?}
+    Verify -->|No| DebugRTL[RTL 수정]
+    DebugRTL --> RTL2
+    Verify -->|Yes| Done([완료: Integration 준비])
+    
+    style Start fill:#e1f5ff
+    style Done fill:#e1ffe1
+    style Config fill:#fff4e1
+    style Sim1 fill:#fff4e1
+    style Sim2 fill:#fff4e1
+    style TimingCheck fill:#fff4e1
+    style Verify fill:#fff4e1
+```
+
 ---
 
 ## 🔧 모듈별 개발 플로우
@@ -73,20 +90,51 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     A[RTL 소스] --> B[Synthesis]
-    B --> C{Setup/Hold<br/>위반?}
+    B --> C{Setup/Hold 위반?}
     C -->|Yes| D[제약 수정]
     D --> B
     C -->|No| E[Implementation]
-    E --> F{Timing<br/>충족?}
+    E --> F{Timing 충족?}
     F -->|No| G[로직 최적화]
     G --> E
-    F -->|Yes| H[Bitstream<br/>생성]
+    F -->|Yes| H[Bitstream 생성]
     H --> I[.bit 파일]
     
     style I fill:#e1ffe1
     style C fill:#fff4e1
     style F fill:#fff4e1
 ```
+
+---
+
+## 📁 폴더 구조
+
+```
+fpga/
+├── rtl/          Verilog/VHDL RTL 코드
+├── ip/           Vivado IP 설정 파일 (TCL 스크립트)
+├── constraints/  제약 파일 (XDC)
+└── sim/          테스트벤치 및 시뮬레이션
+```
+
+## 📝 주요 모듈
+
+### rtl/
+- `data_pack_16to8.v` - 16-bit → 8-bit 데이터 패킹 모듈
+- `mipi_csi2_tx_fsm.v` - MIPI CSI-2 TX FSM
+- `frame_generator.v` - 가상 프레임 생성 (16줄 반복)
+- `top.v` - Top 모듈
+
+### ip/
+- `mipi_csi2_tx_setup.tcl` - MIPI CSI-2 TX Subsystem IP 설정
+
+### constraints/
+- `pins.xdc` - 핀 맵핑
+- `timing.xdc` - 타이밍 제약
+
+### sim/
+- `tb_data_pack.v` - 데이터 패킹 테스트벤치
+- `tb_fsm.v` - FSM 테스트벤치
 
 ---
 
@@ -135,51 +183,3 @@ flowchart LR
 
 **상세 Task 가이드**: [../../agent-guide/agent-prompts.md](../../agent-guide/agent-prompts.md)  
 **5일 계획**: [../../agent-guide/todo-list-5days.md](../../agent-guide/todo-list-5days.md)
-    ILA --> Verify{신호<br/>정상?}
-    Verify -->|No| DebugRTL[RTL 수정]
-    DebugRTL --> RTL2
-    Verify -->|Yes| Done([완료: Integration 준비])
-    
-    style Start fill:#e1f5ff
-    style Done fill:#e1ffe1
-    style Config fill:#fff4e1
-    style Sim1 fill:#fff4e1
-    style Sim2 fill:#fff4e1
-    style TimingCheck fill:#fff4e1
-    style Verify fill:#fff4e1
-```
-
----
-
-## 📁 폴더 구조
-
-```
-fpga/
-├── rtl/          Verilog/VHDL RTL 코드
-├── ip/           Vivado IP 설정 파일 (TCL 스크립트)
-├── constraints/  제약 파일 (XDC)
-└── sim/          테스트벤치 및 시뮬레이션
-```
-
-## 📝 주요 모듈
-
-### rtl/
-- `data_pack_16to8.v` - 16-bit → 8-bit 데이터 패킹 모듈
-- `mipi_csi2_tx_fsm.v` - MIPI CSI-2 TX FSM
-- `frame_generator.v` - 가상 프레임 생성 (16줄 반복)
-- `top.v` - Top 모듈
-
-### ip/
-- `mipi_csi2_tx_setup.tcl` - MIPI CSI-2 TX Subsystem IP 설정
-
-### constraints/
-- `pins.xdc` - 핀 맵핑
-- `timing.xdc` - 타이밍 제약
-
-### sim/
-- `tb_data_pack.v` - 데이터 패킹 테스트벤치
-- `tb_fsm.v` - FSM 테스트벤치
-
-## 🎯 개발 가이드
-
-문서: [agent-guide/agent-prompts.md](../agent-guide/agent-prompts.md) 참조

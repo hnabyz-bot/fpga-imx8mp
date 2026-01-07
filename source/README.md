@@ -8,136 +8,37 @@
 
 ```mermaid
 graph TB
-    Start([프로젝트 시작]) --> Plan[문서 검토<br/>agent-guide/]
+    Start([프로젝트 시작]) --> Plan[문서 검토]
     
     Plan --> Parallel{병렬 개발}
     
-    Parallel -->|FPGA 팀| FPGA1[FPGA 개발<br/>fpga/]
-    Parallel -->|i.MX8MP 팀| IMX1[i.MX8MP 개발<br/>imx8mp/]
+    Parallel -->|FPGA 팀| FPGA1[FPGA 개발]
+    Parallel -->|i.MX8MP 팀| IMX1[i.MX8MP 개발]
     
     FPGA1 --> FPGA2[IP 설정]
     FPGA2 --> FPGA3[RTL 개발]
     FPGA3 --> FPGA4[시뮬레이션]
     FPGA4 --> FPGA5[합성 & 구현]
     FPGA5 --> FPGA6[비트스트림]
-    FPGA6 --> FPGAReady{FPGA<br/>완료?}
+    FPGA6 --> FPGAReady{FPGA 완료?}
     
     IMX1 --> IMX2[Device Tree]
     IMX2 --> IMX3[DT 컴파일]
     IMX3 --> IMX4[커널 배포]
     IMX4 --> IMX5[드라이버 확인]
     IMX5 --> IMX6[스크립트 작성]
-    IMX6 --> IMXReady{i.MX8MP<br/>완료?}
+    IMX6 --> IMXReady{i.MX8MP 완료?}
     
----
-
-## 🔍 통합 테스트 플로우
-
-```mermaid
-sequenceDiagram
-    participant User as 테스트 담당자
-    participant FPGA as FPGA
-    participant PHY as MIPI D-PHY
-    participant IMX as i.MX8MP
-    participant Script as 검증 스크립트
+    FPGAReady -->|Yes| Integration[통합 테스트]
+    IMXReady -->|Yes| Integration
     
-    Note over User: Day 5: 통합 테스트
-    
-    User->>FPGA: 1. DONE 상태 확인
-    FPGA-->>User: DONE = High ✅
-    
-    User->>IMX: 2. 드라이버 확인
-    IMX-->>User: /dev/video0 존재 ✅
-    
-    User->>FPGA: 3. 데이터 전송 시작
-    FPGA->>PHY: MIPI 패킷 (FS→LS→Payload→FE)
-    PHY->>IMX: 4-Lane 전송
-    IMX->>IMX: ISI → DRAM 저장
-    
-    User->>IMX: 4. v4l2-ctl 캡처
-    IMX-->>User: capture.raw (8192 bytes)
-    
-    User->>Script: 5. verify.py 실행
-    Script->>Script: RAW8 → 16-bit 복원
-    Script->>Script: 데이터 비교
-    
-    alt 데이터 불일치
-        Script-->>User: 오프셋: 1024, 기대: 0xABCD, 실제: 0xABDC
-        User->>FPGA: Endian 확인
-        User->>IMX: 복원 로직 확인
-    else 데이터 일치
-        Script-->>User: 무결성 100% ✅
-        Note over User: 프로젝트 완료!
-    end
-```
-
----
-
-## 📋 통합 체크리스트
-
-### 사전 준비
-- [ ] FPGA 비트스트림 준비 (.bit)
-- [ ] i.MX8MP 커널 이미지 준비
-- [ ] Device Tree Blob 준비 (.dtb)
-- [ ] 검증 스크립트 준비 (capture.sh, verify.py)
-
-### 하드웨어 연결
-- [ ] FPGA ↔ i.MX8MP MIPI 연결
-- [ ] SPI 연결 (Config용)
-- [ ] 전원 및 Clock 연결
-- [ ] UART 디버그 연결
-
-### FPGA 측
-- [ ] FPGA Configuration 완료
-- [ ] DONE 신호 확인
-- [ ] ILA 신호 확인 (TVALID, TREADY, TLAST)
-- [ ] MIPI 패킷 출력 확인
-
-### i.MX8MP 측
-- [ ] 커널 부팅 성공
-- [ ] /dev/video0 생성 확인
-- [ ] ISI clock 활성화
-- [ ] dmesg 에러 없음
-
-### 데이터 검증
-- [ ] 파일 크기: 8192 bytes
-- [ ] 데이터 무결성: 100%
-- [ ] 연속 캡처 성공 (10회 이상)
-- [ ] MIPI PHY 에러: 0건
-
----
-
-## 🚨 통합 테스트 시 주의사항
-
-### FPGA
-1. **Configuration 순서 엄수**: i.MX8MP SPI → FPGA Config → DONE 확인
-2. **타이밍 검증**: ILA로 AXI Handshake 확인 필수
-3. **Clock 안정화**: 최소 10ms 대기 후 데이터 전송
-
-### i.MX8MP
-1. **드라이버 로드 확인**: 매 부팅 시 `lsmod` 확인
-2. **ISI 초기화**: setup_isi.sh 실행 필수
-3. **메모리 정렬**: stride = 512, 64-byte 정렬 재확인
-
-### 통합
-1. **점진적 테스트**: 한 프레임씩 확인 후 연속 테스트
-2. **로그 수집**: dmesg, ILA 로그 저장
-3. **재현성 확보**: 실패 시 재현 가능하도록 조건 기록
-
----
-
-## 📚 참고 문서
-
-**프로젝트 문서**: [../agent-guide/](../agent-guide/) 폴더  
-**FPGA 상세**: [fpga/README.md](fpga/README.md)  
-**i.MX8MP 상세**: [imx8mp/README.md](imx8mp/README.md)
     Integration --> Test1[1. FPGA Config 확인]
     Test1 --> Test2[2. MIPI 연결 확인]
     Test2 --> Test3[3. 데이터 캡처]
     Test3 --> Test4[4. 무결성 검증]
     
-    Test4 --> Final{검증<br/>통과?}
-    Final -->|No| Debug{문제<br/>영역?}
+    Test4 --> Final{검증 통과?}
+    Final -->|No| Debug{문제 영역?}
     Debug -->|FPGA| FPGA3
     Debug -->|i.MX8MP| IMX2
     Debug -->|둘 다| Integration
@@ -206,6 +107,48 @@ gantt
 
 ---
 
+## 🔍 통합 테스트 플로우
+
+```mermaid
+sequenceDiagram
+    participant User as 테스트 담당자
+    participant FPGA as FPGA
+    participant PHY as MIPI D-PHY
+    participant IMX as i.MX8MP
+    participant Script as 검증 스크립트
+    
+    Note over User: Day 5: 통합 테스트
+    
+    User->>FPGA: 1. DONE 상태 확인
+    FPGA-->>User: DONE = High ✅
+    
+    User->>IMX: 2. 드라이버 확인
+    IMX-->>User: /dev/video0 존재 ✅
+    
+    User->>FPGA: 3. 데이터 전송 시작
+    FPGA->>PHY: MIPI 패킷 (FS→LS→Payload→FE)
+    PHY->>IMX: 4-Lane 전송
+    IMX->>IMX: ISI → DRAM 저장
+    
+    User->>IMX: 4. v4l2-ctl 캡처
+    IMX-->>User: capture.raw (8192 bytes)
+    
+    User->>Script: 5. verify.py 실행
+    Script->>Script: RAW8 → 16-bit 복원
+    Script->>Script: 데이터 비교
+    
+    alt 데이터 불일치
+        Script-->>User: 오프셋: 1024, 기대: 0xABCD, 실제: 0xABDC
+        User->>FPGA: Endian 확인
+        User->>IMX: 복원 로직 확인
+    else 데이터 일치
+        Script-->>User: 무결성 100% ✅
+        Note over User: 프로젝트 완료!
+    end
+```
+
+---
+
 ## 📁 구조
 
 ```
@@ -222,17 +165,76 @@ source/
     └── drivers/  드라이버 (필요 시)
 ```
 
+---
+
+## 📋 통합 체크리스트
+
+### 사전 준비
+- [ ] FPGA 비트스트림 준비 (.bit)
+- [ ] i.MX8MP 커널 이미지 준비
+- [ ] Device Tree Blob 준비 (.dtb)
+- [ ] 검증 스크립트 준비 (capture.sh, verify.py)
+
+### 하드웨어 연결
+- [ ] FPGA ↔ i.MX8MP MIPI 연결
+- [ ] SPI 연결 (Config용)
+- [ ] 전원 및 Clock 연결
+- [ ] UART 디버그 연결
+
+### FPGA 측
+- [ ] FPGA Configuration 완료
+- [ ] DONE 신호 확인
+- [ ] ILA 신호 확인 (TVALID, TREADY, TLAST)
+- [ ] MIPI 패킷 출력 확인
+
+### i.MX8MP 측
+- [ ] 커널 부팅 성공
+- [ ] /dev/video0 생성 확인
+- [ ] ISI clock 활성화
+- [ ] dmesg 에러 없음
+
+### 데이터 검증
+- [ ] 파일 크기: 8192 bytes
+- [ ] 데이터 무결성: 100%
+- [ ] 연속 캡처 성공 (10회 이상)
+- [ ] MIPI PHY 에러: 0건
+
+---
+
+## 🚨 통합 테스트 시 주의사항
+
+### FPGA
+1. **Configuration 순서 엄수**: i.MX8MP SPI → FPGA Config → DONE 확인
+2. **타이밍 검증**: ILA로 AXI Handshake 확인 필수
+3. **Clock 안정화**: 최소 10ms 대기 후 데이터 전송
+
+### i.MX8MP
+1. **드라이버 로드 확인**: 매 부팅 시 `lsmod` 확인
+2. **ISI 초기화**: setup_isi.sh 실행 필수
+3. **메모리 정렬**: stride = 512, 64-byte 정렬 재확인
+
+### 통합
+1. **점진적 테스트**: 한 프레임씩 확인 후 연속 테스트
+2. **로그 수집**: dmesg, ILA 로그 저장
+3. **재현성 확보**: 실패 시 재현 가능하도록 조건 기록
+
+---
+
 ## 🚀 시작하기
 
 ### FPGA 개발
 1. [fpga/README.md](fpga/README.md) 참조
-2. Task 가이드: [agent-guide/agent-prompts.md](../agent-guide/agent-prompts.md)
-3. 5일 계획: [agent-guide/todo-list-5days.md](../agent-guide/todo-list-5days.md)
+2. Task 가이드: [../agent-guide/agent-prompts.md](../agent-guide/agent-prompts.md)
+3. 5일 계획: [../agent-guide/todo-list-5days.md](../agent-guide/todo-list-5days.md)
 
 ### i.MX8MP 개발
 1. [imx8mp/README.md](imx8mp/README.md) 참조
-2. Device Tree 가이드: [agent-guide/agent-prompts.md](../agent-guide/agent-prompts.md#task-2-1-device-tree-작성)
+2. Device Tree 가이드: [../agent-guide/agent-prompts.md](../agent-guide/agent-prompts.md)
+
+---
 
 ## 📚 참고 문서
 
-프로젝트 문서는 [agent-guide/](../agent-guide/) 폴더 참조
+**프로젝트 문서**: [../agent-guide/](../agent-guide/) 폴더  
+**FPGA 상세**: [fpga/README.md](fpga/README.md)  
+**i.MX8MP 상세**: [imx8mp/README.md](imx8mp/README.md)

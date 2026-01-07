@@ -8,24 +8,55 @@ i.MX8MP 관련 Device Tree, 스크립트, 드라이버
 
 ```mermaid
 graph TB
-    Start([시작: FPGA Config 완료]) --> Check{FPGA DONE<br/>확인?}
-    Check -->|No| Script1[check_fpga_done.sh<br/>작성]
+    Start([시작: FPGA Config 완료]) --> Check{FPGA DONE 확인?}
+    Check -->|No| Script1[check_fpga_done.sh 작성]
     Script1 --> Check
-    Check -->|Yes| DTS1[1. Device Tree 작성<br/>device-tree/*.dts]
+    Check -->|Yes| DTS1[1. Device Tree 작성]
     
-    DTS1 --> DTSDetail[mipi_csi 노드:<br/>data-lanes, clock-lanes<br/><br/>isi 노드:<br/>width, height, stride]
-    DTSDetail --> DTSVerify{DTS 문법<br/>검증?}
+    DTS1 --> DTSDetail[mipi_csi, isi 노드 설정]
+    DTSDetail --> DTSVerify{DTS 문법 검증?}
     DTSVerify -->|No| DTSFix[dtc로 검증]
     DTSFix --> DTS1
-    DTSVerify -->|Yes| Compile[2. Device Tree 컴파일<br/>.dtb 생성]
+    DTSVerify -->|Yes| Compile[2. Device Tree 컴파일]
     
-    Compile --> Deploy[3. 커널 배포<br/>Image + .dtb]
+    Compile --> Deploy[3. 커널 배포]
     Deploy --> Boot[4. i.MX8MP 부팅]
     
-    Boot --> DriverCheck{드라이버<br/>로드?}
+    Boot --> DriverCheck{드라이버 로드?}
     DriverCheck -->|No| LoadDriver[modprobe imx8-isi-cap]
     LoadDriver --> DriverCheck
-    DriverCheck -->|Yes| VideoCheck{/dev/video0<br/>존재?}
+    DriverCheck -->|Yes| VideoCheck{/dev/video0 존재?}
+    
+    VideoCheck -->|No| Debug1[dmesg 확인]
+    Debug1 --> DTS1
+    VideoCheck -->|Yes| ISICheck[5. ISI 설정 확인]
+    
+    ISICheck --> ClockCheck{Clock 활성화?}
+    ClockCheck -->|No| ClockFix[clk_summary 확인]
+    ClockFix --> DTS1
+    ClockCheck -->|Yes| Capture[6. 데이터 캡처]
+    
+    Capture --> Size{파일 크기 8192 bytes?}
+    Size -->|No| Debug2[Height/Stride 확인]
+    Debug2 --> DTS1
+    Size -->|Yes| Verify[7. 데이터 검증]
+    
+    Verify --> Integrity{무결성 100%?}
+    Integrity -->|No| Debug3[Endian 확인]
+    Debug3 --> Verify
+    Integrity -->|Yes| Done([완료: 통합 테스트 준비])
+    
+    style Start fill:#ffe1e1
+    style Done fill:#e1ffe1
+    style Check fill:#fff4e1
+    style DTSVerify fill:#fff4e1
+    style DriverCheck fill:#fff4e1
+    style VideoCheck fill:#fff4e1
+    style ClockCheck fill:#fff4e1
+    style Size fill:#fff4e1
+    style Integrity fill:#fff4e1
+```
+
 ---
 
 ## 🔧 개발 상세 플로우
@@ -69,21 +100,21 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    A[v4l2-ctl 캡처] --> B{파일<br/>생성?}
+    A[v4l2-ctl 캡처] --> B{파일 생성?}
     B -->|No| C[dmesg 확인]
     C --> D[드라이버/DT 점검]
     D --> A
     
-    B -->|Yes| E[파일 크기 확인<br/>8192 bytes]
-    E --> F{크기<br/>정확?}
-    F -->|No| G[Height/Stride<br/>재설정]
+    B -->|Yes| E[파일 크기 확인: 8192 bytes]
+    E --> F{크기 정확?}
+    F -->|No| G[Height/Stride 재설정]
     G --> A
     
-    F -->|Yes| H[Python 검증<br/>verify.py]
-    H --> I[RAW8 → 16-bit<br/>Little Endian]
-    I --> J{무결성<br/>100%?}
+    F -->|Yes| H[Python 검증: verify.py]
+    H --> I[RAW8 to 16-bit Little Endian]
+    I --> J{무결성 100%?}
     
-    J -->|No| K[데이터 비교<br/>오프셋 확인]
+    J -->|No| K[데이터 비교, 오프셋 확인]
     K --> L[FPGA 점검]
     
     J -->|Yes| M[검증 완료 ✅]
@@ -93,6 +124,32 @@ flowchart TB
     style F fill:#fff4e1
     style J fill:#fff4e1
 ```
+
+---
+
+## 📁 폴더 구조
+
+```
+imx8mp/
+├── device-tree/  Device Tree Source 파일
+├── scripts/      캡처 및 검증 스크립트
+└── drivers/      커스텀 드라이버 (필요 시)
+```
+
+## 📝 주요 파일
+
+### device-tree/
+- `imx8mp-mipi-csi2.dts` - MIPI CSI-2 및 ISI 설정
+- `imx8mp-overlay.dtso` - Device Tree Overlay
+
+### scripts/
+- `capture.sh` - v4l2-ctl 기반 데이터 캡처
+- `verify.py` - 데이터 무결성 검증
+- `check_fpga_done.sh` - FPGA Configuration 확인
+- `setup_isi.sh` - ISI 초기화
+
+### drivers/
+- (필요 시 커스텀 드라이버 추가)
 
 ---
 
@@ -187,60 +244,3 @@ dmesg | grep -i isi
 
 **상세 Task 가이드**: [../../agent-guide/agent-prompts.md](../../agent-guide/agent-prompts.md)  
 **5일 계획**: [../../agent-guide/todo-list-5days.md](../../agent-guide/todo-list-5days.md)
-    VideoCheck -->|Yes| ISICheck[5. ISI 설정 확인<br/>setup_isi.sh]
-    
-    ISICheck --> ClockCheck{Clock<br/>활성화?}
-    ClockCheck -->|No| ClockFix[clk_summary 확인<br/>DT 수정]
-    ClockFix --> DTS1
-    ClockCheck -->|Yes| Capture[6. 데이터 캡처<br/>scripts/capture.sh]
-    
-    Capture --> Size{파일 크기<br/>8192 bytes?}
-    Size -->|No| Debug2[Height/Stride 확인]
-    Debug2 --> DTS1
-    Size -->|Yes| Verify[7. 데이터 검증<br/>scripts/verify.py]
-    
-    Verify --> Integrity{무결성<br/>100%?}
-    Integrity -->|No| Debug3[Endian 확인<br/>FPGA 출력 점검]
-    Debug3 --> Verify
-    Integrity -->|Yes| Done([완료: 통합 테스트 준비])
-    
-    style Start fill:#ffe1e1
-    style Done fill:#e1ffe1
-    style Check fill:#fff4e1
-    style DTSVerify fill:#fff4e1
-    style DriverCheck fill:#fff4e1
-    style VideoCheck fill:#fff4e1
-    style ClockCheck fill:#fff4e1
-    style Size fill:#fff4e1
-    style Integrity fill:#fff4e1
-```
-
----
-
-## 📁 폴더 구조
-
-```
-imx8mp/
-├── device-tree/  Device Tree Source 파일
-├── scripts/      캡처 및 검증 스크립트
-└── drivers/      커스텀 드라이버 (필요 시)
-```
-
-## 📝 주요 파일
-
-### device-tree/
-- `imx8mp-mipi-csi2.dts` - MIPI CSI-2 및 ISI 설정
-- `imx8mp-overlay.dtso` - Device Tree Overlay
-
-### scripts/
-- `capture.sh` - v4l2-ctl 기반 데이터 캡처
-- `verify.py` - 데이터 무결성 검증
-- `check_fpga_done.sh` - FPGA Configuration 확인
-- `setup_isi.sh` - ISI 초기화
-
-### drivers/
-- (필요 시 커스텀 드라이버 추가)
-
-## 🎯 개발 가이드
-
-문서: [agent-guide/agent-prompts.md](../agent-guide/agent-prompts.md) 참조
